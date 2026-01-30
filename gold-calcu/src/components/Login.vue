@@ -142,8 +142,8 @@ export default {
         email: email.value
       }))
       
-      // Redirect to calculator
-      router.push('/calculator')
+      // Redirect to calculator (or home)
+      router.push('/')
     }
     
     return {

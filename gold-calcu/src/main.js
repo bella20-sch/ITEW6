@@ -6,25 +6,14 @@ import Calculator from './components/Calculator.vue'
 import './style.css'
 
 const routes = [
-  { path: '/', redirect: '/login' },
+  { path: '/', component: Calculator },
   { path: '/login', component: Login },
-  { path: '/calculator', component: Calculator, meta: { requiresAuth: true } }
+  { path: '/calculator', component: Calculator }
 ]
 
 const router = createRouter({
   history: createWebHistory(),
   routes
-})
-
-// Navigation guard to protect calculator route
-router.beforeEach((to, from, next) => {
-  const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true'
-  
-  if (to.meta.requiresAuth && !isAuthenticated) {
-    next('/login')
-  } else {
-    next()
-  }
 })
 
 createApp(App).use(router).mount('#app')

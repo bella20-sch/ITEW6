@@ -1,9 +1,10 @@
 <template>
   <div class="calculator-page">
     <nav class="app-nav">
-      <span class="nav-welcome">Welcome, <strong>{{ currentUser?.username || 'User' }}</strong>!</span>
+      <span class="nav-welcome">Welcome, <strong>{{ currentUser?.username || 'Guest' }}</strong>!</span>
       <div class="nav-actions">
         <button
+          v-if="isAuthenticated"
           class="nav-cart-btn"
           type="button"
           @click="showCart = true"
@@ -14,9 +15,13 @@
           <span>Cart</span>
           <span v-if="cart.length > 0" class="cart-badge">{{ cart.length }}</span>
         </button>
-        <button class="nav-logout" type="button" @click="logout" aria-label="Logout" title="Logout">
+        <button v-if="isAuthenticated" class="nav-logout" type="button" @click="logout" aria-label="Logout" title="Logout">
           <i class="fas fa-right-from-bracket"></i>
           <span>Logout</span>
+        </button>
+        <button v-else class="nav-login" type="button" @click="goToLogin" aria-label="Login" title="Login">
+          <i class="fas fa-sign-in-alt"></i>
+          <span>Login / Sign Up</span>
         </button>
       </div>
     </nav>
@@ -235,6 +240,12 @@
               <span class="result-label"><i class="fas fa-coins"></i> Total:</span>
               <span class="result-value">₱{{ calcDisplayResult.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</span>
             </div>
+            <div class="formula-section">
+              <div class="formula-title"><i class="fas fa-calculator"></i> Formula:</div>
+              <div class="formula-text">
+                Grams × Gold Rate + 12% (Tax) = Total Gold Amount
+              </div>
+            </div>
           </template>
 
           <template v-else>
@@ -265,6 +276,12 @@
             <div class="result-item total-item">
               <span class="result-label"><i class="fas fa-coins"></i> Total:</span>
               <span class="result-value">₱{{ shopDisplayResult.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</span>
+            </div>
+            <div class="formula-section">
+              <div class="formula-title"><i class="fas fa-calculator"></i> Formula:</div>
+              <div class="formula-text">
+                Grams × Gold Rate + Making (Design) Charge + 12% (Tax) = Total Gold Amount
+              </div>
             </div>
           </template>
         </div>
@@ -342,11 +359,37 @@
         </div>
       </div>
     </Teleport>
+
+    <!-- Login Prompt Modal -->
+    <Teleport to="body">
+      <div v-if="showLoginPrompt" class="modal-overlay" @click.self="showLoginPrompt = false">
+        <div class="modal login-prompt-modal">
+          <div class="modal-header">
+            <h2><i class="fas fa-sign-in-alt"></i> Login Required</h2>
+            <button type="button" class="modal-close" @click="showLoginPrompt = false" aria-label="Close">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          <div class="modal-body">
+            <p>You need to be logged in to purchase items or add them to your cart.</p>
+            <p>Please login or create an account to continue.</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn" @click="goToLogin">
+              <i class="fas fa-sign-in-alt"></i> Go to Login / Sign Up
+            </button>
+            <button type="button" class="btn btn-secondary" @click="showLoginPrompt = false">
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script>
-import { ref, computed, reactive, watch } from 'vue'
+import { ref, computed, reactive, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 
 export default {
@@ -374,15 +417,57 @@ export default {
 
     const cart = ref([])
     const currentUser = ref(null)
+    const showLoginPrompt = ref(false)
 
-    const userData = localStorage.getItem('currentUser')
-    if (userData) {
-      try {
-        currentUser.value = JSON.parse(userData)
-      } catch (e) {
-        console.error('Error parsing user data:', e)
+    const isAuthenticated = computed(() => {
+      if (typeof window === 'undefined' || !window.localStorage) return false
+      return localStorage.getItem('isAuthenticated') === 'true'
+    })
+
+    const loadUserData = () => {
+      if (typeof window === 'undefined' || !window.localStorage) {
+        currentUser.value = null
+        return
+      }
+      const userData = localStorage.getItem('currentUser')
+      if (userData) {
+        try {
+          currentUser.value = JSON.parse(userData)
+        } catch (e) {
+          console.error('Error parsing user data:', e)
+          currentUser.value = null
+        }
+      } else {
+        currentUser.value = null
       }
     }
+
+    // Listen for storage changes (when user logs in from another tab/window)
+    const handleStorageChange = (e) => {
+      if (e.key === 'isAuthenticated' || e.key === 'currentUser') {
+        loadUserData()
+      }
+    }
+
+    onMounted(() => {
+      window.addEventListener('storage', handleStorageChange)
+      // Also check on mount in case user logged in and navigated back
+      loadUserData()
+    })
+
+    onUnmounted(() => {
+      window.removeEventListener('storage', handleStorageChange)
+    })
+
+    // Reload user data when login prompt closes (in case user logged in)
+    watch(showLoginPrompt, (newVal) => {
+      if (!newVal) {
+        // Small delay to allow localStorage to update
+        setTimeout(() => {
+          loadUserData()
+        }, 100)
+      }
+    })
 
     const goldRates = {
       '24k': 9942.97,
@@ -471,12 +556,20 @@ export default {
     }
 
     const buyNow = () => {
+      if (!isAuthenticated.value) {
+        showLoginPrompt.value = true
+        return
+      }
       if (!validateShopItem()) return
       purchasedItems.value = [buildCartItem()]
       showThankYou.value = true
     }
 
     const addToCart = () => {
+      if (!isAuthenticated.value) {
+        showLoginPrompt.value = true
+        return
+      }
       if (!validateShopItem()) return
       cart.value.push(buildCartItem())
       alert('Item added to cart!')
@@ -490,6 +583,11 @@ export default {
 
     const checkout = () => {
       if (cart.value.length === 0) return
+      if (!isAuthenticated.value) {
+        showCart.value = false
+        showLoginPrompt.value = true
+        return
+      }
       purchasedItems.value = [...cart.value]
       cart.value = []
       showCart.value = false
@@ -499,18 +597,26 @@ export default {
     const purchasedTotal = computed(() => purchasedItems.value.reduce((sum, i) => sum + i.total, 0))
 
     const logout = () => {
-      localStorage.removeItem('isAuthenticated')
-      localStorage.removeItem('currentUser')
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.removeItem('isAuthenticated')
+        localStorage.removeItem('currentUser')
+      }
+      router.push('/login')
+    }
+
+    const goToLogin = () => {
       router.push('/login')
     }
 
     return {
       activeTab,
       currentUser,
+      isAuthenticated,
       calcGrams,
       calcPurity,
       calcGoldRate,
       calcDisplayResult,
+      calcResult,
       calculate,
       goldRates,
       purityOrder,
@@ -531,7 +637,9 @@ export default {
       showThankYou,
       purchasedItems,
       purchasedTotal,
-      logout
+      logout,
+      goToLogin,
+      showLoginPrompt
     }
   }
 }
@@ -629,6 +737,25 @@ export default {
 .shop-form .label-amount {
   color: #b88900;
   font-weight: 600;
+  font-size: 0.9rem;
+  display: inline;
+  margin-left: 8px;
+}
+
+@media (max-width: 768px) {
+  .calculator-card .form-group label,
+  .shop-form .form-group label {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .calculator-card .label-amount,
+  .shop-form .label-amount {
+    display: block;
+    margin-left: 0;
+    margin-top: 6px;
+    width: 100%;
+  }
 }
 
 .optional {
@@ -847,5 +974,74 @@ textarea:focus {
   margin-bottom: 20px;
   font-size: 1.2rem;
   color: #b88900;
+}
+
+.nav-login {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: rgba(212, 175, 55, 0.2);
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  color: white;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-family: 'Quicksand', sans-serif;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.nav-login:hover {
+  background: rgba(212, 175, 55, 0.35);
+  border-color: rgba(212, 175, 55, 0.6);
+  transform: translateY(-1px);
+}
+
+.login-prompt-modal .modal-body {
+  text-align: center;
+}
+
+.login-prompt-modal .modal-body p {
+  margin-bottom: 12px;
+  color: rgba(11, 18, 32, 0.8);
+  font-size: 1rem;
+}
+
+.login-prompt-modal .modal-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.formula-section {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(11, 18, 32, 0.12);
+}
+
+.formula-title {
+  font-weight: 700;
+  color: rgba(11, 18, 32, 0.9);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+}
+
+.formula-title i {
+  color: rgba(212, 175, 55, 0.9);
+}
+
+.formula-text {
+  font-size: 0.9rem;
+  color: rgba(11, 18, 32, 0.75);
+  line-height: 1.6;
+  font-family: 'Courier New', monospace;
+  background: rgba(11, 18, 32, 0.04);
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(11, 18, 32, 0.08);
 }
 </style>
