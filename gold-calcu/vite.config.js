@@ -4,5 +4,5 @@ import vue from '@vitejs/plugin-vue'
 
 export default defineConfig({
   plugins: [vue()],
-  base: './' // important for Vercel SPA
+  base: '/' // Use absolute paths for Vercel
 })
