@@ -203,7 +203,12 @@ body {
     text-align: center;
   }
 
-  .nav-logout {
+  .nav-actions {
+    justify-content: center;
+  }
+
+  .nav-logout,
+  .nav-cart-btn {
     justify-content: center;
   }
 
