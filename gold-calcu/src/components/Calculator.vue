@@ -645,7 +645,7 @@ export default {
 }
 </script>
 
-<style>
+<style scoped>
 .main-tabs {
   display: flex;
   gap: 12px;
@@ -753,7 +753,7 @@ export default {
 
   .calculator-card .label-amount,
   .shop-form .label-amount {
-    display: block;
+    display: inline-block !important;
     width: 100%;              
     margin-left: 0;
     margin-top: 6px;
