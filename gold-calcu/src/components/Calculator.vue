@@ -645,7 +645,7 @@ export default {
 }
 </script>
 
-<style scoped>
+<style>
 .main-tabs {
   display: flex;
   gap: 12px;
