@@ -745,18 +745,21 @@ export default {
 @media (max-width: 768px) {
   .calculator-card .form-group label,
   .shop-form .form-group label {
-    flex-direction: column;
-    align-items: flex-start;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;          
   }
-  
+
   .calculator-card .label-amount,
   .shop-form .label-amount {
     display: block;
+    width: 100%;              
     margin-left: 0;
     margin-top: 6px;
-    width: 100%;
   }
 }
+
 
 .optional {
   font-weight: 400;
